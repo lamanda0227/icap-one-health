@@ -1,0 +1,278 @@
+---
+title: "Preliminary Analysis"
+author: "Amanda(Tianyi) Liu"
+date: "16/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = '~/Desktop/CUMC/Practicum/ICAP/data/')
+library(scales)
+library(rlist)
+library(tidyverse)
+library(plotly)
+library(patchwork)
+```
+
+```{r, include=FALSE}
+f_name <- 'alumni_tracking_05.11_update2.csv'
+dat <- read.csv(f_name, row.names = NULL) 
+dat <- dat %>% group_by(q7a_ohun_network) %>% rename(OHUN = q7a_ohun_network)
+# head(dat)
+```
+
+**Q1. Best Way of Communication**
+```{r}
+q1 <- dat %>% select(starts_with('q1_')) %>%
+  summarise_all(funs(count = sum(.=='yes'))) %>%
+  rename(Email=2, Phone=3,MobileApplication=4, Other=5) %>%
+  gather(variable, value, -OHUN)
+
+fig <- plot_ly()
+fig <- fig %>% add_pie(data=filter(q1, OHUN=='SEAOHUN'), labels = ~variable, values = ~value, name = 'SEAOHUN',
+                       textposition = 'inside',textinfo = 'label+percent',insidetextorientation='radial',
+                       domain = list(row = 0, column = 0)) 
+fig <- fig %>% add_pie(data=filter(q1, OHUN=='AFROHUN'), labels = ~variable, values = ~value, name = 'AFROHUN',
+                       textposition = 'inside',textinfo = 'label+percent', insidetextorientation='radial',
+                       domain = list(row = 0, column = 1))
+
+fig <- fig %>% layout(title = "Most Preferred Method Of Communication (Email/Phone/App)", showlegend = F,
+                      grid=list(rows=1, columns=2),
+                      xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+                      yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE)) %>% 
+  add_annotations(x=seq(0.2,0.2 + 1*0.5,0.5),
+                y=0,
+                text = c("SEAOHUN", "AFROHUN"),
+                xref = "paper",
+                yref = "paper",
+                xanchor = "left",
+                showarrow = FALSE)
+
+fig
+```
+
+**Q2. Gender**
+```{r}
+q2 <- dat %>% select(starts_with('q2_')) %>% rename(gender=2) %>% count(gender)
+
+fig <- plot_ly()
+fig <- fig %>% add_pie(data = filter(q2, OHUN=='SEAOHUN'), labels = ~gender, values = ~n, hole = 0.6, name = 'SEAOHUN',
+                       textposition = 'inside',textinfo = 'label+percent',insidetextorientation='radial',
+                       domain = list(row = 0, column = 0)) 
+fig <- fig %>% add_pie(data = filter(q2, OHUN=='AFROHUN'), labels = ~gender, values = ~n, hole = 0.6, name = 'AFROHUN',
+                       textposition = 'inside',textinfo = 'label+percent',insidetextorientation='radial',
+                       domain = list(row = 0, column = 1))
+
+fig <- fig %>% layout(title = "Stratification Based On Gender", showlegend = F,
+                      grid=list(rows=1, columns=2),
+                      xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+                      yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE)) %>% 
+  add_annotations(x=seq(0.2,0.2 + 1*0.5,0.5),
+                y=0,
+                text = c("SEAOHUN", "AFROHUN"),
+                xref = "paper",
+                yref = "paper",
+                xanchor = "left",
+                showarrow = FALSE)
+
+fig
+```
+
+**Q3. Age**
+```{r}
+q3 <- dat %>% select(starts_with('q3_')) %>% rename(age=2) %>% count(age)
+
+age = c('17 or younger', '18 to 24', '25 to 29','30 to 34', '35 to 39', '40 to 44', '45 to 49','50 to 54',
+          '55 to 59','60 to 64', '65 to 69','70 or older')
+q3_options <- data.frame(OHUN = c(rep('SEAOHUN', length(age)), rep('AFROHUN', length(age))),
+                         age = rep(age, 2),
+                         count = rep(0, 2*length(age)))
+
+q3_full <- left_join(q3_options, q3) %>% mutate_if(is.numeric,coalesce,0) %>% mutate(n = count + n)
+
+# plot annotation
+sea <- list(
+  text = "SEAOHUN",
+  xref = "paper",
+  yref = "paper",
+  yanchor = "top",
+  xanchor = "center",
+  align = "center",
+  x = 0.5,
+  y = 1,
+  showarrow = FALSE
+)
+
+afr <- list(
+  text = "AFROHUN",
+  xref = "paper",
+  yref = "paper",
+  yanchor = "top",
+  xanchor = "center",
+  align = "center",
+  x = 0.5,
+  y = 1,
+  showarrow = FALSE
+)
+
+fig1 <- plot_ly(data = filter(q3_full, OHUN=='SEAOHUN'), x = ~age, y = ~n, 
+                 name = "SEAOHUN", type = "bar") %>% 
+  add_text(text=~n, hoverinfo='none', textposition = 'top', showlegend = FALSE,
+           textfont=list(size=10, color="grey")) %>%
+  layout(annotations = sea)
+
+fig2 <- plot_ly(data = filter(q3_full, OHUN=='AFROHUN'), x = ~age, y = ~n, 
+                 name = "AFROHUN", type = "bar") %>% 
+  add_text(text=~n, hoverinfo='none', textposition = 'top', showlegend = FALSE,
+           textfont=list(size=10, color="grey")) %>%
+  layout(annotations = afr)
+
+fig <- subplot(fig1, fig2) %>% layout(title="Stratification Based on Age", showlegend = FALSE)
+fig
+```
+
+**Q7. OHUN Network**
+```{r}
+q7 <- dat %>% count(OHUN) %>% rename(count = n)
+fig <- plot_ly(data = q7, x = ~OHUN, y = ~count, type = "bar", name = "participants") %>%
+  layout(title = "Total Number of Participants in Both OHUN") %>%
+  add_text(text=~count, hoverinfo='none', textposition = 'top', showlegend = FALSE,
+           textfont=list(size=10, color="grey"))
+
+fig
+```
+
+**Q4. Number Of Participants In SEAOHUN And AFROHUN**
+```{r}
+uni <- dat %>% select(starts_with('q7_')) %>%
+  summarise_all(funs(count = sum(.=='yes')))
+uni <- uni[order(uni$OHUN),]
+
+names <- lapply(colnames(uni)[-1], function(x) strsplit(x, '_')[[1]]) %>%
+  lapply(function(x) x[length(x)-1]) %>% unlist()
+names <- list.append(c("OHUN"), names)
+colnames(uni) <- names
+
+afr <- uni[1, 11:20] %>% transpose() %>% unlist() %>% 
+  data.frame(stringsAsFactors = FALSE) %>% 
+  rownames_to_column() %>% `colnames<-`(c('uni', 'n'))
+afr$uni <- factor(afr$uni, levels = unique(afr$uni)[order(afr$n, decreasing = TRUE)]) 
+afr <- afr[order(afr$n, decreasing = TRUE),] %>% mutate(prop = cumsum(n)/sum(n))
+
+sea <- uni[2, 2:10] %>% transpose() %>% unlist() %>%
+  data.frame(stringsAsFactors = FALSE) %>% 
+  rownames_to_column() %>% `colnames<-`(c('uni', 'n'))
+sea$uni <- factor(sea$uni, levels = unique(sea$uni)[order(sea$n, decreasing = TRUE)]) 
+sea <- sea[order(sea$n, decreasing = TRUE),] %>% mutate(prop = cumsum(n)/sum(n))
+sea
+
+fig1 <- plot_ly(afr)
+fig1 <- fig1 %>% add_trace(x = ~uni, y = ~n, type = 'bar', name = 'Number of Participants',
+            hoverinfo = "text",
+            text = ~n)
+fig1 <- fig1 %>% add_trace(x = ~uni, y = ~prop, type = 'scatter', mode = 'lines', name = 'Cumulative percentage', yaxis = 'y2',
+            line = list(color = '#45171D'),
+            hoverinfo = "text",
+            text = ~prop)
+fig1 <- fig1 %>% layout(title = 'Number of participants enrolled in each AFROHUN',
+         xaxis = list(title = ""),
+         yaxis = list(side = 'left', title = '', showgrid = FALSE, zeroline = FALSE),
+         yaxis2 = list(side = 'right', title = '', 
+                       overlaying = "y", tickformat = '%', showgrid = FALSE, zeroline = FALSE),
+         showlegend = F,
+         margin = list(r=100))
+fig1
+
+fig2 <- plot_ly(sea)
+fig2 <- fig2 %>% add_trace(x = ~uni, y = ~n, type = 'bar', name = 'Number of Participants',
+            hoverinfo = "text",
+            text = ~n)
+fig2 <- fig2 %>% add_trace(x = ~uni, y = ~prop, type = 'scatter', mode = 'lines', name = 'Cumulative percentage', yaxis = 'y2',
+            line = list(color = '#45171D'),
+            hoverinfo = "text",
+            text = ~prop)
+fig2 <- fig2 %>% layout(title = 'Number of participants enrolled in each SEAOHUN', showlegend = FALSE,
+         xaxis = list(title = ""),
+         yaxis = list(side = 'left', title = '', showgrid = FALSE, zeroline = FALSE),
+         yaxis2 = list(side = 'right', title = '',
+                       overlaying = "y", tickformat = '%', showgrid = FALSE, zeroline = FALSE),
+         showlegend = F,
+         margin = list(r=100))
+fig2
+```
+
+**Q8. Number Of Participants From Each University In SEAOHUN-THOHUN (Q8) **
+```{r}
+q8 <- dat %>% select(starts_with('q8_')) %>% ungroup() %>% summarise_all(funs(count=sum(.=='yes', na.rm = TRUE)))
+country_uni <- read.csv('country_uni_list.csv')
+
+plot_sea <- function(ohun, country){
+  uni <- country_uni %>% filter(Country==country) %>% select(University) %>% transpose() %>% unlist()
+  chapt <- q8 %>% select(contains(country)) %>% `colnames<-`(uni) %>% transpose() %>% unlist()
+  chapt <- data.frame(uni = names(chapt), count = unlist(chapt))
+  chapt$uni <- factor(chapt$uni, levels = uni)
+  
+  fig <- plot_ly(chapt, x=~uni, y=~count, type='bar') %>% 
+  layout(title = paste("Number Of Participants From Each University In", ohun, '-', country),
+         xaxis = list(title = ""),
+         yaxis = list(side = 'left', title = ''),
+         margin = list(l=20, r=20, b=250),
+         showlegend = F)
+  # %>% add_text(text=~count, hoverinfo='none', textposition = 'top', showlegend = FALSE,
+  #          textfont=list(size=10, color="grey"))
+  
+  fig
+}
+
+plot_af <- function(ohun, country_abr, country){
+  uni <- country_uni %>% filter(Country==country) %>% select(University) %>% transpose() %>% unlist()
+  chapt <- q8 %>% select(contains(country_abr)) %>% `colnames<-`(uni) %>% transpose() %>% unlist()
+  chapt <- data.frame(uni = names(chapt), count = unlist(chapt))
+  chapt$uni <- factor(chapt$uni, levels = uni)
+  
+  fig <- plot_ly(chapt, x=~uni, y=~count, type='bar') %>% 
+  layout(title = paste("Number Of Participants From Each University In", ohun, '-', country),
+         xaxis = list(title = "", tickmode = 'array', ticktext = uni, tickvalue = c(1:length(uni))),
+         yaxis = list(side = 'left', title = ''),
+         margin = list(l=50, r=50, t=50, b=300),
+         showlegend = F) 
+  # %>% add_text(text=~count, hoverinfo='none', textposition = 'top', showlegend = FALSE,
+  #          textfont=list(size=10, color="grey"))
+  fig
+}
+
+plot_sea('SEAOHUN', 'CAMBOHUN')
+plot_sea('SEAOHUN', 'INDOHUN')
+plot_sea('SEAOHUN', 'LAOHUN')
+plot_sea('SEAOHUN', 'MMOHUN')
+plot_sea('SEAOHUN', 'MyOHUN')
+plot_sea('SEAOHUN', 'PhilOHUN')
+plot_sea('SEAOHUN', 'THOHUN')
+plot_sea('SEAOHUN', 'VOHUN')
+plot_af('AFOHUN', 'cameroon', 'CAMEROON')
+plot_af('AFOHUN', 'cote_divoire', 'CÔTE D’IVOIRE')
+plot_af('AFOHUN', 'drc', 'DEMOCRATIC REPUBLIC OF THE CONGO')
+plot_af('AFOHUN', 'ethiopia', 'ETHIOPIA')
+plot_af('AFOHUN', 'kenya', 'KENYA')
+plot_af('AFOHUN', 'senegal', 'SENEGAL')
+plot_af('AFOHUN', 'tanzania', 'TANZANIA')
+plot_af('AFOHUN', 'rwanda', 'RWANDA')
+plot_af('AFOHUN', 'uganda', 'UGANDA')
+```
+
+```{r}
+# uni <- country_uni %>% filter(Country=='CAMBOHUN') %>% select(University) %>% transpose() %>% unlist()
+# dat <- q8 %>% select(contains('CAMBOHUN')) %>% `colnames<-`(uni) %>% transpose() %>% unlist()
+# dat <- data.frame(uni = names(dat), count = unlist(dat))
+# dat$uni <- factor(dat$uni, levels = uni)
+# fig <- plot_ly(dat, x=~uni, y=~count, type='bar') %>% 
+#   layout(title = paste("Number Of Participants From Each University In SEAOHUN -", "CAMBOHUN"),
+#          xaxis = list(title = ""),
+#          yaxis = list(side = 'left', title = ''),
+#          showlegend = F) %>%
+#   add_text(text=~count, hoverinfo='none', textposition = 'top', showlegend = FALSE,
+#            textfont=list(size=10, color="grey"))
+
+
+```
