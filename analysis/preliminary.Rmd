@@ -5,17 +5,19 @@ date: "16/05/2021"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = '~/Desktop/CUMC/Practicum/ICAP/data/')
+knitr::opts_knit$set(root.dir = '~/Desktop/CUMC/Practicum/icap-one-health/data/')
 library(scales)
 library(rlist)
 library(tidyverse)
 library(plotly)
 library(patchwork)
+library(knitr)
+library(kableExtra)
 ```
 
-```{r, include=FALSE}
+```{r}
 f_name <- 'alumni_tracking_05.11_update2.csv'
 dat <- read.csv(f_name, row.names = NULL) 
 dat <- dat %>% group_by(q7a_ohun_network) %>% rename(OHUN = q7a_ohun_network)
@@ -261,18 +263,38 @@ plot_af('AFOHUN', 'rwanda', 'RWANDA')
 plot_af('AFOHUN', 'uganda', 'UGANDA')
 ```
 
+**Average Time To Complete OH Training (Q9-10)**
 ```{r}
-# uni <- country_uni %>% filter(Country=='CAMBOHUN') %>% select(University) %>% transpose() %>% unlist()
-# dat <- q8 %>% select(contains('CAMBOHUN')) %>% `colnames<-`(uni) %>% transpose() %>% unlist()
-# dat <- data.frame(uni = names(dat), count = unlist(dat))
-# dat$uni <- factor(dat$uni, levels = uni)
-# fig <- plot_ly(dat, x=~uni, y=~count, type='bar') %>% 
-#   layout(title = paste("Number Of Participants From Each University In SEAOHUN -", "CAMBOHUN"),
-#          xaxis = list(title = ""),
-#          yaxis = list(side = 'left', title = ''),
-#          showlegend = F) %>%
-#   add_text(text=~count, hoverinfo='none', textposition = 'top', showlegend = FALSE,
-#            textfont=list(size=10, color="grey"))
+q9 <- dat %>% select(starts_with(c('q9_', 'q10'))) %>% 
+  `colnames<-`(c("OHUN", "start", "end")) %>% 
+  filter(grepl("^[0-9]", start)) %>%
+  mutate(start = as.numeric(start), end = as.numeric(end), id = row_number(), diff = end-start)
 
+header <- c("Participant Number", "Year OH Training Began", "Year OH Training Completed/plan to complete", "Difference")
 
+af <- group_split(q9)[[1]] %>% select(-1) %>% relocate(id) %>% `colnames<-`(header)
+sea <- group_split(q9)[[2]] %>% select(-1) %>% relocate(id) %>% `colnames<-`(header)
 ```
+
+```{r}
+kable(af, format = "html", caption = "AFROHUN", align = "c") %>% kable_styling()
+```
+Average number of years to complete OH Training: `r mean(af$Difference)`. 
+
+Minimum number of years to complete OH Training: `r min(af$Difference)`. 
+
+Maximum number of years to complete OH Training: `r max(af$Difference)`. 
+
+Median number of years to complete OH Training: `r median(af$Difference)`. 
+
+```{r}
+kable(sea, format = "html", caption = "SEAOHUN", align = "c") %>% kable_styling()
+```
+Average number of years to complete OH Training: `r mean(sea$Difference)`. 
+
+Minimum number of years to complete OH Training: `r min(sea$Difference)`. 
+
+Maximum number of years to complete OH Training: `r max(sea$Difference)`. 
+
+Median number of years to complete OH Training: `r median(sea$Difference)`. 
+
