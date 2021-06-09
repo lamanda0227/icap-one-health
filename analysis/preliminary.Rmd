@@ -1,275 +1,276 @@
 ---
-title: "Preliminary Analysis"
+title: "Preliminary Analysis Result for OHUN Network"
 author: "Amanda(Tianyi) Liu"
 date: "16/05/2021"
-output: html_document
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: xelatex
 ---
 
 ```{r setup}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = '~/Desktop/CUMC/Practicum/icap-one-health/data/')
+```
+
+```{r package, message=FALSE, warning=FALSE}
 library(scales)
 library(rlist)
 library(tidyverse)
-library(plotly)
 library(patchwork)
-library(knitr)
+library(ggplot2)
+library(stringr)
 library(kableExtra)
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 f_name <- 'alumni_tracking_05.11_update2.csv'
-dat <- read.csv(f_name, row.names = NULL) 
-dat <- dat %>% group_by(q7a_ohun_network) %>% rename(OHUN = q7a_ohun_network)
-# head(dat)
+dat <- read.csv(f_name)
+dat <- cbind(id=rownames(dat), dat)
+dat <- dat %>% group_by(q7a_ohun_network) %>% rename(OHUN = q7a_ohun_network) 
 ```
 
+## SECTION 1 - Basic Demographics and One Health Connections
+
 **Q1. Best Way of Communication**
-```{r}
+```{r fig.height=5, fig.width=8.5}
 q1 <- dat %>% select(starts_with('q1_')) %>%
   summarise_all(funs(count = sum(.=='yes'))) %>%
-  rename(Email=2, Phone=3,MobileApplication=4, Other=5) %>%
-  gather(variable, value, -OHUN)
+  rename("Email"=2, "Phone"=3, "MobileApplication"=4, "Other"=5) %>%
+  gather(Method, count, -OHUN) %>%
+  mutate(Method = factor(Method, unique(Method)))
 
-fig <- plot_ly()
-fig <- fig %>% add_pie(data=filter(q1, OHUN=='SEAOHUN'), labels = ~variable, values = ~value, name = 'SEAOHUN',
-                       textposition = 'inside',textinfo = 'label+percent',insidetextorientation='radial',
-                       domain = list(row = 0, column = 0)) 
-fig <- fig %>% add_pie(data=filter(q1, OHUN=='AFROHUN'), labels = ~variable, values = ~value, name = 'AFROHUN',
-                       textposition = 'inside',textinfo = 'label+percent', insidetextorientation='radial',
-                       domain = list(row = 0, column = 1))
+af <- q1 %>% filter(OHUN=='AFROHUN') %>%
+  arrange(desc(Method)) %>%
+  mutate(pos = cumsum(count)- count/2, prop = round(100*count/sum(count),2)) %>%
+  mutate(prop = paste(prop, "%", sep=''))
 
-fig <- fig %>% layout(title = "Most Preferred Method Of Communication (Email/Phone/App)", showlegend = F,
-                      grid=list(rows=1, columns=2),
-                      xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-                      yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE)) %>% 
-  add_annotations(x=seq(0.2,0.2 + 1*0.5,0.5),
-                y=0,
-                text = c("SEAOHUN", "AFROHUN"),
-                xref = "paper",
-                yref = "paper",
-                xanchor = "left",
-                showarrow = FALSE)
+sea <- q1 %>% filter(OHUN=='SEAOHUN') %>%
+  arrange(desc(Method)) %>%
+  mutate(pos = cumsum(count)- count/2, prop = round(100*count/sum(count),2)) %>%
+  mutate(prop = paste(prop, "%", sep=''))
 
-fig
+colors <- c("#0073C2FF", "#EFC000FF", "#868686FF", "#CD534CFF")
+
+af_plot <- ggplot(af, aes(x="", y=count, fill=Method)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0) +
+  labs(x='', y='', title="Most Preferred Method Of Communication (Email/Phone/App) - AFROHUN")+
+  geom_text(aes(y = pos, label = prop), color = "white") + 
+  scale_fill_manual(values = colors) +
+  theme_void()
+
+sea_plot <- ggplot(sea, aes(x="", y=count, fill=Method)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0) +
+  labs(x='', y='', title="Most Preferred Method Of Communication (Email/Phone/App) - SEAOHUN")+
+  geom_text(aes(y = pos, label = prop), color = "white") + 
+  scale_fill_manual(values = colors) +
+  theme_void()
+
+af_plot
+sea_plot
 ```
 
 **Q2. Gender**
-```{r}
-q2 <- dat %>% select(starts_with('q2_')) %>% rename(gender=2) %>% count(gender)
+```{r fig.height=5, fig.width=8.5}
+q2 <- dat %>% select(starts_with('q2_')) %>% rename(Gender=2) %>% count(Gender)
 
-fig <- plot_ly()
-fig <- fig %>% add_pie(data = filter(q2, OHUN=='SEAOHUN'), labels = ~gender, values = ~n, hole = 0.6, name = 'SEAOHUN',
-                       textposition = 'inside',textinfo = 'label+percent',insidetextorientation='radial',
-                       domain = list(row = 0, column = 0)) 
-fig <- fig %>% add_pie(data = filter(q2, OHUN=='AFROHUN'), labels = ~gender, values = ~n, hole = 0.6, name = 'AFROHUN',
-                       textposition = 'inside',textinfo = 'label+percent',insidetextorientation='radial',
-                       domain = list(row = 0, column = 1))
+af <- q2 %>% filter(OHUN=='AFROHUN') %>%
+  arrange(desc(Gender)) %>%
+  mutate(pos = cumsum(n)- n/2, prop = round(100*n/sum(n),2)) %>%
+  mutate(prop = paste(prop, "%", sep=''))
 
-fig <- fig %>% layout(title = "Stratification Based On Gender", showlegend = F,
-                      grid=list(rows=1, columns=2),
-                      xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-                      yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE)) %>% 
-  add_annotations(x=seq(0.2,0.2 + 1*0.5,0.5),
-                y=0,
-                text = c("SEAOHUN", "AFROHUN"),
-                xref = "paper",
-                yref = "paper",
-                xanchor = "left",
-                showarrow = FALSE)
+sea <- q2 %>% filter(OHUN=='SEAOHUN') %>%
+  arrange(desc(Gender)) %>%
+  mutate(pos = cumsum(n)- n/2, prop = round(100*n/sum(n),2)) %>%
+  mutate(prop = paste(prop, "%", sep=''))
 
-fig
+colors <- c("#0073C2FF", "#EFC000FF", "#868686FF", "#CD534CFF")
+
+af_plot <- ggplot(af, aes(x=2, y=n, fill=Gender)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0) +
+  labs(x='', y='', title="Stratification Based On Gender - AFROHUN")+
+  geom_text(aes(y = pos, label = prop), color = "white") + 
+  scale_fill_manual(values = colors) +
+  theme_void() + theme(plot.title = element_text(hjust = 0.5)) +
+  xlim(0.5, 2.5)
+  
+sea_plot <- ggplot(sea, aes(x=2, y=n, fill=Gender)) +
+  geom_bar(stat="identity", width=1) +
+  coord_polar("y", start=0) +
+  labs(x='', y='', title="Stratification Based On Gender - SEAOHUN")+
+  geom_text(aes(y = pos, label = prop), color = "white") + 
+  scale_fill_manual(values = colors) +
+  theme_void() + theme(plot.title = element_text(hjust = 0.5)) +
+  xlim(0.5, 2.5)
+  
+af_plot
+sea_plot
 ```
 
 **Q3. Age**
-```{r}
-q3 <- dat %>% select(starts_with('q3_')) %>% rename(age=2) %>% count(age)
+```{r fig.height=5, fig.width=8.5}
+age_cat = c('17 or younger', 
+        '18 to 24', 
+        '25 to 29',
+        '30 to 34', 
+        '35 to 39', 
+        '40 to 44', 
+        '45 to 49',
+        '50 to 54',
+        '55 to 59',
+        '60 to 64', 
+        '65 to 69',
+        '70 or older')
 
-age = c('17 or younger', '18 to 24', '25 to 29','30 to 34', '35 to 39', '40 to 44', '45 to 49','50 to 54',
-          '55 to 59','60 to 64', '65 to 69','70 or older')
-q3_options <- data.frame(OHUN = c(rep('SEAOHUN', length(age)), rep('AFROHUN', length(age))),
-                         age = rep(age, 2),
-                         count = rep(0, 2*length(age)))
+q3 <- dat %>% select(id, starts_with('q3_')) %>% rename(Age=3) %>% count(Age)
 
-q3_full <- left_join(q3_options, q3) %>% mutate_if(is.numeric,coalesce,0) %>% mutate(n = count + n)
+af <- q3 %>% filter(OHUN=="AFROHUN") %>% 
+  full_join(data.frame(age_cat), by = c("Age" = "age_cat")) %>%
+  mutate(OHUN="AFROHUN", across(n, ~replace_na(.,0))) %>%
+  separate(Age, c("a", NA, NA), sep=' ', remove = FALSE) %>%
+  arrange(a) %>% select(-a)
 
-# plot annotation
-sea <- list(
-  text = "SEAOHUN",
-  xref = "paper",
-  yref = "paper",
-  yanchor = "top",
-  xanchor = "center",
-  align = "center",
-  x = 0.5,
-  y = 1,
-  showarrow = FALSE
-)
+sea <- q3 %>% filter(OHUN=="SEAOHUN") %>% 
+  full_join(data.frame(age_cat), by = c("Age" = "age_cat")) %>%
+  mutate(OHUN="SEAOHUN", across(n, ~replace_na(.,0))) %>%
+  separate(Age, c("a", NA, NA), sep=' ', remove = FALSE) %>%
+  arrange(a) %>% select(-a)
 
-afr <- list(
-  text = "AFROHUN",
-  xref = "paper",
-  yref = "paper",
-  yanchor = "top",
-  xanchor = "center",
-  align = "center",
-  x = 0.5,
-  y = 1,
-  showarrow = FALSE
-)
+af_plot <- ggplot(af, aes(x=age_cat, y=n)) +
+  ggtitle("Stratification Of Survey Participants By Age - AFROHUN") + xlab("") + ylab("") +
+  geom_bar(stat="identity", fill="steelblue") +
+  geom_text(aes(label=n),colour="gray",vjust=-1) +
+  theme_minimal() + theme(plot.title = element_text(hjust = 0.5))
 
-fig1 <- plot_ly(data = filter(q3_full, OHUN=='SEAOHUN'), x = ~age, y = ~n, 
-                 name = "SEAOHUN", type = "bar") %>% 
-  add_text(text=~n, hoverinfo='none', textposition = 'top', showlegend = FALSE,
-           textfont=list(size=10, color="grey")) %>%
-  layout(annotations = sea)
+sea_plot <- ggplot(af, aes(x=age_cat, y=n)) +
+  ggtitle("Stratification Of Survey Participants By Age - SEAOHUN") + xlab("") + ylab("") +
+  geom_bar(stat="identity", fill="steelblue") +
+  geom_text(aes(label=n),colour="gray",vjust=-1) +
+  theme_minimal() + theme(plot.title = element_text(hjust = 0.5))
 
-fig2 <- plot_ly(data = filter(q3_full, OHUN=='AFROHUN'), x = ~age, y = ~n, 
-                 name = "AFROHUN", type = "bar") %>% 
-  add_text(text=~n, hoverinfo='none', textposition = 'top', showlegend = FALSE,
-           textfont=list(size=10, color="grey")) %>%
-  layout(annotations = afr)
-
-fig <- subplot(fig1, fig2) %>% layout(title="Stratification Based on Age", showlegend = FALSE)
-fig
+af_plot
+sea_plot
 ```
 
 **Q7. OHUN Network**
-```{r}
-q7 <- dat %>% count(OHUN) %>% rename(count = n)
-fig <- plot_ly(data = q7, x = ~OHUN, y = ~count, type = "bar", name = "participants") %>%
-  layout(title = "Total Number of Participants in Both OHUN") %>%
-  add_text(text=~count, hoverinfo='none', textposition = 'top', showlegend = FALSE,
-           textfont=list(size=10, color="grey"))
+```{r fig.height=5, fig.width=8.5}
+q7 <- dat %>% count(OHUN)
 
-fig
+participant <- ggplot(q7, aes(x=OHUN, y=n)) +
+  ggtitle("Total Number of Participants in Each OHUN") + xlab("") + ylab("") +
+  geom_bar(stat="identity", fill="steelblue", width = 0.8) +
+  geom_text(aes(label=n),colour="gray",vjust=-1) +
+  theme_minimal() + theme(plot.title = element_text(hjust = 0.5))
+
+participant
 ```
 
 **Q4. Number Of Participants In SEAOHUN And AFROHUN**
-```{r}
-uni <- dat %>% select(starts_with('q7_')) %>%
-  summarise_all(funs(count = sum(.=='yes')))
-uni <- uni[order(uni$OHUN),]
-
-names <- lapply(colnames(uni)[-1], function(x) strsplit(x, '_')[[1]]) %>%
-  lapply(function(x) x[length(x)-1]) %>% unlist()
-names <- list.append(c("OHUN"), names)
-colnames(uni) <- names
-
-afr <- uni[1, 11:20] %>% transpose() %>% unlist() %>% 
-  data.frame(stringsAsFactors = FALSE) %>% 
-  rownames_to_column() %>% `colnames<-`(c('uni', 'n'))
-afr$uni <- factor(afr$uni, levels = unique(afr$uni)[order(afr$n, decreasing = TRUE)]) 
-afr <- afr[order(afr$n, decreasing = TRUE),] %>% mutate(prop = cumsum(n)/sum(n))
-
-sea <- uni[2, 2:10] %>% transpose() %>% unlist() %>%
-  data.frame(stringsAsFactors = FALSE) %>% 
-  rownames_to_column() %>% `colnames<-`(c('uni', 'n'))
-sea$uni <- factor(sea$uni, levels = unique(sea$uni)[order(sea$n, decreasing = TRUE)]) 
-sea <- sea[order(sea$n, decreasing = TRUE),] %>% mutate(prop = cumsum(n)/sum(n))
-sea
-
-fig1 <- plot_ly(afr)
-fig1 <- fig1 %>% add_trace(x = ~uni, y = ~n, type = 'bar', name = 'Number of Participants',
-            hoverinfo = "text",
-            text = ~n)
-fig1 <- fig1 %>% add_trace(x = ~uni, y = ~prop, type = 'scatter', mode = 'lines', name = 'Cumulative percentage', yaxis = 'y2',
-            line = list(color = '#45171D'),
-            hoverinfo = "text",
-            text = ~prop)
-fig1 <- fig1 %>% layout(title = 'Number of participants enrolled in each AFROHUN',
-         xaxis = list(title = ""),
-         yaxis = list(side = 'left', title = '', showgrid = FALSE, zeroline = FALSE),
-         yaxis2 = list(side = 'right', title = '', 
-                       overlaying = "y", tickformat = '%', showgrid = FALSE, zeroline = FALSE),
-         showlegend = F,
-         margin = list(r=100))
-fig1
-
-fig2 <- plot_ly(sea)
-fig2 <- fig2 %>% add_trace(x = ~uni, y = ~n, type = 'bar', name = 'Number of Participants',
-            hoverinfo = "text",
-            text = ~n)
-fig2 <- fig2 %>% add_trace(x = ~uni, y = ~prop, type = 'scatter', mode = 'lines', name = 'Cumulative percentage', yaxis = 'y2',
-            line = list(color = '#45171D'),
-            hoverinfo = "text",
-            text = ~prop)
-fig2 <- fig2 %>% layout(title = 'Number of participants enrolled in each SEAOHUN', showlegend = FALSE,
-         xaxis = list(title = ""),
-         yaxis = list(side = 'left', title = '', showgrid = FALSE, zeroline = FALSE),
-         yaxis2 = list(side = 'right', title = '',
-                       overlaying = "y", tickformat = '%', showgrid = FALSE, zeroline = FALSE),
-         showlegend = F,
-         margin = list(r=100))
-fig2
+```{r fig.height=5, fig.width=8.5}
+# uni <- dat %>% select(starts_with('q7_')) %>%
+#   summarise_all(funs(count = sum(.=='yes')))
+# uni <- uni[order(uni$OHUN),]
+#
+# names <- lapply(colnames(uni)[-1], function(x) strsplit(x, '_')[[1]]) %>%
+#   lapply(function(x) x[length(x)-1]) %>% unlist()
+# names <- list.append(c("OHUN"), names)
+# colnames(uni) <- names
+#
+# afr <- uni[1, 11:20] %>% transpose() %>% unlist() %>%
+#   data.frame(stringsAsFactors = FALSE) %>%
+#   rownames_to_column() %>% `colnames<-`(c('uni', 'n'))
+# afr$uni <- factor(afr$uni, levels = unique(afr$uni)[order(afr$n, decreasing = TRUE)])
+# afr <- afr[order(afr$n, decreasing = TRUE),] %>% mutate(prop = cumsum(n)/sum(n))
+#
+# sea <- uni[2, 2:10] %>% transpose() %>% unlist() %>%
+#   data.frame(stringsAsFactors = FALSE) %>%
+#   rownames_to_column() %>% `colnames<-`(c('uni', 'n'))
+# sea$uni <- factor(sea$uni, levels = unique(sea$uni)[order(sea$n, decreasing = TRUE)])
+# sea <- sea[order(sea$n, decreasing = TRUE),] %>% mutate(prop = cumsum(n)/sum(n))
+# sea
+#
+# fig1 <- plot_ly(afr)
+# fig1 <- fig1 %>% add_trace(x = ~uni, y = ~n, type = 'bar', name = 'Number of Participants',
+#             hoverinfo = "text",
+#             text = ~n)
+# fig1 <- fig1 %>% add_trace(x = ~uni, y = ~prop, type = 'scatter', mode = 'lines', name = 'Cumulative percentage', yaxis = 'y2',
+#             line = list(color = '#45171D'),
+#             hoverinfo = "text",
+#             text = ~prop)
+# fig1 <- fig1 %>% layout(title = 'Number of participants enrolled in each AFROHUN',
+#          xaxis = list(title = ""),
+#          yaxis = list(side = 'left', title = '', zeroline = FALSE),
+#          yaxis2 = list(side = 'right', title = '',
+#                        overlaying = "y", tickformat = '%', showgrid = FALSE, zeroline = FALSE),
+#          showlegend = F,
+#          margin = list(r=100))
+# fig1
+#
+# fig2 <- plot_ly(sea)
+# fig2 <- fig2 %>% add_trace(x = ~uni, y = ~n, type = 'bar', name = 'Number of Participants',
+#             hoverinfo = "text",
+#             text = ~n)
+# fig2 <- fig2 %>% add_trace(x = ~uni, y = ~prop, type = 'scatter', mode = 'lines', name = 'Cumulative percentage', yaxis = 'y2',
+#             line = list(color = '#45171D'),
+#             hoverinfo = "text",
+#             text = ~prop)
+# fig2 <- fig2 %>% layout(title = 'Number of participants enrolled in each SEAOHUN', showlegend = FALSE,
+#          xaxis = list(title = ""),
+#          yaxis = list(side = 'left', title = '', zeroline = FALSE),
+#          yaxis2 = list(side = 'right', title = '',
+#                        overlaying = "y", tickformat = '%', showgrid = FALSE, zeroline = FALSE),
+#          showlegend = F,
+#          margin = list(r=100))
+# fig2
 ```
 
-**Q8. Number Of Participants From Each University In SEAOHUN-THOHUN (Q8) **
-```{r}
+
+**Q8. Number Of Participants From Each University In SEAOHUN (Q8) **
+```{r fig.height=6, fig.width=11}
 q8 <- dat %>% select(starts_with('q8_')) %>% ungroup() %>% summarise_all(funs(count=sum(.=='yes', na.rm = TRUE)))
 country_uni <- read.csv('country_uni_list.csv')
 
-plot_sea <- function(ohun, country){
-  uni <- country_uni %>% filter(Country==country) %>% select(University) %>% transpose() %>% unlist()
-  chapt <- q8 %>% select(contains(country)) %>% `colnames<-`(uni) %>% transpose() %>% unlist()
+plot_chapt <- function(ohun, country_abbr, country){
+  uni <- country_uni %>% filter(Country_abbr==country_abbr) %>% select(University) %>% transpose() %>% unlist()
+  chapt <- q8 %>% select(contains(country_abbr)) %>% `colnames<-`(uni) %>% transpose() %>% unlist()
   chapt <- data.frame(uni = names(chapt), count = unlist(chapt))
   chapt$uni <- factor(chapt$uni, levels = uni)
+  chapt$count <- as.numeric(chapt$count)
   
-  fig <- plot_ly(chapt, x=~uni, y=~count, type='bar') %>% 
-  layout(title = paste("Number Of Participants From Each University In", ohun, '-', country),
-         xaxis = list(title = ""),
-         yaxis = list(side = 'left', title = ''),
-         margin = list(l=20, r=20, b=250),
-         showlegend = F)
-  # %>% add_text(text=~count, hoverinfo='none', textposition = 'top', showlegend = FALSE,
-  #          textfont=list(size=10, color="grey"))
-  
-  fig
+  ylim <- max(chapt$count)+0.5*max(chapt$count)
+  fig <- ggplot(chapt, aes(x=factor(uni,unique(uni)), y=count)) +
+    ggtitle(paste("Number Of Participants From Each University In", ohun, '\n', country)) + xlab("") + ylab("") +
+    geom_bar(stat="identity", fill="steelblue", width=0.8) +
+    geom_text(aes(label=count),colour="gray",hjust=-2)+
+    scale_x_discrete(labels = wrap_format(40)) + ylim(0, ylim) +
+    theme_minimal() + theme(plot.title = element_text(hjust = 0.5)) +
+    coord_flip()
+
+  return(fig)
 }
 
-plot_af <- function(ohun, country_abr, country){
-  uni <- country_uni %>% filter(Country==country) %>% select(University) %>% transpose() %>% unlist()
-  chapt <- q8 %>% select(contains(country_abr)) %>% `colnames<-`(uni) %>% transpose() %>% unlist()
-  chapt <- data.frame(uni = names(chapt), count = unlist(chapt))
-  chapt$uni <- factor(chapt$uni, levels = uni)
-  
-  fig <- plot_ly(chapt, x=~uni, y=~count, type='bar') %>% 
-  layout(title = paste("Number Of Participants From Each University In", ohun, '-', country),
-         xaxis = list(title = "", tickmode = 'array', ticktext = uni, tickvalue = c(1:length(uni))),
-         yaxis = list(side = 'left', title = ''),
-         margin = list(l=50, r=50, t=50, b=300),
-         showlegend = F) 
-  # %>% add_text(text=~count, hoverinfo='none', textposition = 'top', showlegend = FALSE,
-  #          textfont=list(size=10, color="grey"))
-  fig
-}
+loop <- unique(country_uni[ , 1:3])
+for (i in 1:dim(loop)[1]){
+  ohun <- loop[i, 1]
+  country <- loop[i, 2]
+  country_abbr <- loop[i, 3]
 
-plot_sea('SEAOHUN', 'CAMBOHUN')
-plot_sea('SEAOHUN', 'INDOHUN')
-plot_sea('SEAOHUN', 'LAOHUN')
-plot_sea('SEAOHUN', 'MMOHUN')
-plot_sea('SEAOHUN', 'MyOHUN')
-plot_sea('SEAOHUN', 'PhilOHUN')
-plot_sea('SEAOHUN', 'THOHUN')
-plot_sea('SEAOHUN', 'VOHUN')
-plot_af('AFOHUN', 'cameroon', 'CAMEROON')
-plot_af('AFOHUN', 'cote_divoire', 'CÔTE D’IVOIRE')
-plot_af('AFOHUN', 'drc', 'DEMOCRATIC REPUBLIC OF THE CONGO')
-plot_af('AFOHUN', 'ethiopia', 'ETHIOPIA')
-plot_af('AFOHUN', 'kenya', 'KENYA')
-plot_af('AFOHUN', 'senegal', 'SENEGAL')
-plot_af('AFOHUN', 'tanzania', 'TANZANIA')
-plot_af('AFOHUN', 'rwanda', 'RWANDA')
-plot_af('AFOHUN', 'uganda', 'UGANDA')
+  fig <- plot_chapt(ohun, country_abbr, country)
+  print(fig)
+}
 ```
 
-**Average Time To Complete OH Training (Q9-10)**
-```{r}
-q9 <- dat %>% select(starts_with(c('q9_', 'q10'))) %>% 
-  `colnames<-`(c("OHUN", "start", "end")) %>% 
-  filter(grepl("^[0-9]", start)) %>%
-  mutate(start = as.numeric(start), end = as.numeric(end), id = row_number(), diff = end-start)
 
+**Q9-10. Average Time To Complete OH Training (Q9-10)**
+```{r}
+q9 <- dat %>% select(id, starts_with(c('q9_', 'q10'))) %>%
+  rename(OHUN=1, id=2, start=3, end=4) %>%
+  mutate(start = as.numeric(start), end = as.numeric(end), id = as.numeric(id), diff = end - start) %>%
+  drop_na()
 header <- c("Participant Number", "Year OH Training Began", "Year OH Training Completed/plan to complete", "Difference")
 
 af <- group_split(q9)[[1]] %>% select(-1) %>% relocate(id) %>% `colnames<-`(header)
@@ -284,17 +285,257 @@ Average number of years to complete OH Training: `r mean(af$Difference)`.
 Minimum number of years to complete OH Training: `r min(af$Difference)`. 
 
 Maximum number of years to complete OH Training: `r max(af$Difference)`. 
-
+ 
 Median number of years to complete OH Training: `r median(af$Difference)`. 
 
 ```{r}
 kable(sea, format = "html", caption = "SEAOHUN", align = "c") %>% kable_styling()
 ```
-Average number of years to complete OH Training: `r mean(sea$Difference)`. 
+Average number of years to complete OH Training: `r mean(sea$Difference)`.
 
-Minimum number of years to complete OH Training: `r min(sea$Difference)`. 
+Minimum number of years to complete OH Training: `r min(sea$Difference)`.
 
-Maximum number of years to complete OH Training: `r max(sea$Difference)`. 
+Maximum number of years to complete OH Training: `r max(sea$Difference)`.
 
-Median number of years to complete OH Training: `r median(sea$Difference)`. 
+Median number of years to complete OH Training: `r median(sea$Difference)`.
 
+
+**Trend Analysis of Number of Participants Over Years (Q9-10)**
+```{r}
+trend <- q9 %>% select(-start, -diff) %>% 
+  mutate(dummy="yes") %>% spread(end, dummy) %>% 
+  mutate(across(everything(),~replace_na(.x, "no"))) %>%
+  gather(Graduation, Status, -OHUN, -id) %>%
+  filter(Status=='yes') %>%
+  group_by(OHUN, Graduation) %>%
+  summarise_at(vars(Status), funs(sum(.=='yes')))
+
+emp <- ggplot(trend, aes(x=factor(Graduation, unique(Graduation)), Status)) + 
+  geom_bar(aes(fill = OHUN), position = position_dodge2(preserve = "single", width=0.8), stat = "identity") +
+  labs(x='', y='', title="Number of Graduates over Year", subtitle="*based on completion year") +
+  scale_fill_manual(values=c("#81b3de", "#f3bc44")) +
+  theme_minimal() +  theme(plot.title = element_text(hjust = 0.5), 
+                           plot.subtitle = element_text(hjust = 0.5),
+                           legend.position="bottom",
+                           legend.title = element_blank())
+emp
+```
+
+
+**Trend Analysis of Participants’ Gender Over Years (Q2,9,10) **
+```{r}
+gender <- dat %>% select(id, starts_with('q2_')) %>%
+  mutate(id=as.numeric(id), dummy='yes') %>%
+  full_join(q9) %>% drop_na() %>%
+  select(-start, -diff) %>%
+  spread(q2_gender, dummy) %>% mutate(across(everything(),~replace_na(., 'no'))) %>%
+  group_by(OHUN, end) %>%
+  summarise_at(vars(Female, Male), funs(sum(.=='yes'))) %>%
+  gather(Gender, Count, -OHUN, -end)
+gender
+
+af <- ggplot(filter(gender, OHUN=="AFROHUN"), aes(x=factor(end, unique(end)), Count)) + 
+  geom_bar(aes(fill = Gender), position = position_dodge2(preserve = "single", width=0.8), stat = "identity") +
+  labs(x='', y='', title="Graduate Genders Throughout Years - AFROHUN", subtitle="*based on completion year") +
+  scale_fill_manual(values=c("#81b3de", "#8fc056")) +
+  theme_minimal() +  theme(plot.title = element_text(hjust = 0.5), 
+                           plot.subtitle = element_text(hjust = 0.5),
+                           legend.position="bottom",
+                           legend.title = element_blank())
+
+sea <- ggplot(filter(gender, OHUN=="SEAOHUN"), aes(x=factor(end, unique(end)), Count)) + 
+  geom_bar(aes(fill = Gender), position = position_dodge2(preserve = "single", width=0.8), stat = "identity") +
+  labs(x='', y='', title="Graduate Genders Throughout Years - SEAOHUN", subtitle="*based on completion year") +
+  scale_fill_manual(values=c("#81b3de", "#8fc056")) +
+  theme_minimal() +  theme(plot.title = element_text(hjust = 0.5), 
+                           plot.subtitle = element_text(hjust = 0.5),
+                           legend.position="bottom",
+                           legend.title = element_blank())
+
+af
+sea
+```
+
+
+**Q11. The Most Common Route Of Association Between The Participants And The OHUN (Q11)**
+```{r}
+q11 <- dat %>% select(starts_with('q11_'), -contains("other"))
+row_label <- c("In-service, (training taken during employment)",
+               "Pre-service (trained before employment)",
+               "Student club member, only")
+col_label <- c("Completed a few hours of training (but not a curriculum or program; did not formally graduate)",
+               "Completed a single formal curriculum or program of study (and have have graduated)",
+               "Completed multiple programs of study (and have graduated)")
+
+
+```
+
+
+**Q12. Bar Graph Of The Total Degrees Obtained (Q12)**
+```{r fig.height=5, fig.width=8.5}
+q12 <- dat %>% select(id, starts_with(c('q12_', 'q10'))) %>%
+  rename("Bachelor's Degree (BA, BS, BSc)" = 3, 
+         "Master's Degree (MSc, MA, MSPH, MBA)" = 4,
+         "Doctoral (academic) Degree (PhD, ScD, EdD)" = 5,
+         "Professional Degree (JD, MD)" = 6,
+         "Other" = 7,
+         "Spec" = 8,
+         "Completion" = 9) %>%
+  spread(Other, Spec) %>% select(-no) %>%
+  mutate(Other = ifelse(is.na(yes), 'no', 'yes'), across(everything(), ~replace_na(.x, "REMOVE"))) %>%
+  mutate(yes = paste("Other:", yes)) %>%
+  spread(yes, Other) %>% select(-"Other: REMOVE") %>% 
+  mutate(across(everything(), ~replace_na(.x, "no")))
+
+q12_p1 <- q12 %>% summarise_all(funs(sum(.=="yes"))) %>%
+  gather(Degree, Num, -OHUN, -id)
+
+af <- ggplot(filter(q12_p1, OHUN=='AFROHUN'), aes(x=factor(Degree,unique(Degree)), y=Num)) +
+  ggtitle("Bar Graph Of The Total Degrees Obtained (Q12) - AFROHUN") + xlab("") + ylab("") +
+  geom_bar(stat="identity", fill="steelblue") +
+  geom_text(aes(label=Num),colour="gray",vjust=-1) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 10))+
+  theme_minimal() + theme(plot.title = element_text(hjust = 0.5))
+
+sea <- ggplot(filter(q12_p1, OHUN=='SEAOHUN'), aes(x=factor(Degree,unique(Degree)), y=Num)) +
+  ggtitle("Bar Graph Of The Total Degrees Obtained (Q12) - SEAOHUN") + xlab("") + ylab("") +
+  geom_bar(stat="identity", fill="steelblue") +
+  geom_text(aes(label=Num),colour="gray",vjust=-1) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 10))+
+  theme_minimal() + theme(plot.title = element_text(hjust = 0.5))
+
+af
+sea
+```
+```{r}
+q12_p2 <- q12 %>% mutate(Completion = as.numeric(Completion)) %>% drop_na(Completion) %>%
+  group_by(OHUN, Completion) %>%
+  summarise_all(funs(sum(.=='yes'))) %>%
+  gather("Degree", "Num", -OHUN, -id, -Completion) %>%
+  mutate(Completion=as.character(Completion), Degree=factor(Degree,unique(Degree))) %>%
+  filter_at(vars(Num), any_vars(.!=0))
+
+af <- group_split(q12_p2)[[1]]
+sea <- group_split(q12_p2)[[2]]
+
+af_legend <- ceiling(length(unique(af$Degree)) / 3)
+sea_legend <- ceiling(length(unique(sea$Degree)) / 3)
+
+af_plot <- ggplot(af, aes(x = Completion, y = Num, fill = Degree, label = Num)) +
+  geom_bar(stat = "identity")+
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  ggtitle("Number of Degrees Per Completion Year - AFROHUN") + xlab("") + ylab("")+
+  theme_minimal() + theme(plot.title = element_text(hjust = 0.5), legend.position="bottom") +
+  guides(fill=guide_legend(nrow=af_legend,byrow=TRUE))
+
+sea_plot <- ggplot(sea, aes(x = Completion, y = Num, fill = Degree, label = Num)) +
+  geom_bar(stat = "identity")+
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+  ggtitle("Number of Degrees Per Completion Year - SEAOHUN") + xlab("") + ylab("")+
+  theme_minimal() + theme(plot.title = element_text(hjust = 0.5), legend.position="bottom")+
+  guides(fill=guide_legend(nrow=sea_legend,byrow=TRUE))
+
+af_plot
+sea_plot
+```
+
+
+**Q13-14. Bar Graph Representing Employment Status Pre And Post OH Training: (Q13-14)**
+```{r fig.height=6, fig.width=11}
+type <- c("Employed full time (40h)",
+          "Employed part time (< 40 hours)",
+          "Undergraduate student full time",
+          "Undergraduate student part time",
+          "Graduate/professional school full time",
+          "Graduate/professional school part time",
+          "Seeking employment",
+          "Seeking more education",
+          "Volunteer, retired, taking a leave of absence (due to maternity leave, for example)",
+          "Other")
+
+q13 <- dat %>% select(starts_with('q13_'), -contains("spec")) %>%
+  `colnames<-`(c('OHUN', type)) %>% 
+  mutate(across(everything(), ~replace_na(.x, "no"))) %>%
+  summarise_all(funs(sum(.=='yes'))) %>%
+  gather(Employment, Count, -OHUN) %>%
+  mutate(Time = 'Prior to OH Traning')
+
+q14 <- dat %>% select(starts_with('q14_'), -contains("spec")) %>%
+  `colnames<-`(c('OHUN', type)) %>% 
+  mutate(across(everything(), ~replace_na(.x, "no"))) %>%
+  summarise_all(funs(sum(.=='yes'))) %>%
+  gather(Employment, Count, -OHUN) %>%
+  mutate(Time = 'Post OH Traning')
+
+concat <- rbind(q13, q14)
+concat$Time <- factor(concat$Time , levels = unique(concat$Time))
+
+af <- ggplot(filter(concat, OHUN=="AFROHUN"), aes(Employment, Count)) + 
+  geom_bar(aes(fill = Time, color = Time), position = "dodge", stat = "identity") +
+  ggtitle("Employment Status Prior And Post Oh Training - AFROHUN") + xlab("") + ylab("") +
+  scale_x_discrete(labels = wrap_format(30), limits=rev) + 
+  theme_minimal() +  theme(plot.title = element_text(hjust = 0.5), 
+                           legend.position="bottom",
+                           legend.title = element_blank()) + 
+  coord_flip()
+
+sea <- ggplot(filter(concat, OHUN=="SEAOHUN"), aes(Employment, Count)) +  
+  geom_bar(aes(fill = Time, color = Time), position = "dodge", stat = "identity") +
+  ggtitle("Employment Status Prior And Post Oh Training - SEAOHUN") + xlab("") + ylab("") +
+  scale_x_discrete(labels = wrap_format(30), limit=rev) + 
+  theme_minimal() +  theme(plot.title = element_text(hjust = 0.5), 
+                           legend.position="bottom",
+                           legend.title = element_blank()) +
+  coord_flip()
+
+af
+sea
+```
+
+
+**Q15. Table representing Current Alumni Employment Status (Q15)**
+```{r}
+q15 <- dat %>% select(id, starts_with(c('q15', 'q4'))) %>% drop_na() %>%
+  rename("Participant Number" = 2,
+         "Employer Name/Name of Company" = 3,
+         "Full Job Title" = 4,
+         "Country" = 5,
+         "City" = 6,
+         "Country of Origin" = 7) %>%
+  unite("Country & City Where Respondent Works", c(Country, City), sep = ", ") %>%
+  select(-5:6)
+
+q15 <- q15[c(2, 1, 5, 6, 3, 4)]
+kable(filter(q15, OHUN=="AFROHUN"), format = "html", caption = "AFROHUN", align = "c") %>% kable_styling()
+kable(filter(q15, OHUN=="SEAOHUN"), format = "html", caption = "SEAOHUN", align = "c") %>% kable_styling()
+```
+
+
+## SECTION 2 - OHUN PARTICIPATION DETAILS
+
+
+**Q16-17. Bar Graph Showing The Top Favorite and Least Favorite Courses (Q17-18)**
+```{r}
+course_list <- c("Behavior Change",
+                 "Collaboration and Partnerships",
+                 "Communications and Informatics",
+                 "Culture, Beliefs, Values and Ethics",
+                 "Ecosystem Health",
+                 "Epidemiology and Risk Analysis",
+                 "Fundamentals of Infectious Disease",
+                 "Infectious Disease Management",
+                 "Leadership",
+                 "Management",
+                 "One Health Concepts and Knowledge",
+                 "Policy, Advocacy and Regulation",
+                 "Public Health",
+                 "Systems Thinking")
+
+fav <- dat %>% select(starts_with("q16")) %>%
+  mutate(across(everything(), ~replace_na(.x, "no")))
+fav_s <- fav %>% select(contains("seaohun"))
+fav_a <- fav %>% select(contains("afrohun"))
+fav_s
+fav_a
+# lfav <-
+```
